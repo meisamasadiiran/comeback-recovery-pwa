@@ -322,7 +322,7 @@ function getDayCount(startDate: string) {
 function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`brand-mark ${compact ? "brand-mark--compact" : ""}`} aria-label="Comeback">
-      <img className={`brand-image ${compact ? "brand-image--compact" : ""}`} src="/manus-storage/comeback-logo-trimmed_261d6845.png" alt="Comeback Recovery" />
+      <img className={`brand-image ${compact ? "brand-image--compact" : ""}`} src={`${import.meta.env.BASE_URL}assets/comeback-logo.png`} alt="Comeback Recovery" />
     </div>
   );
 }
@@ -552,7 +552,7 @@ function Welcome({ lang, setLang, onComplete }: { lang: Lang; setLang: (l: Lang)
         </button>
       </header>
       <div className="welcome-content">
-        <div className="welcome-symbol"><img className="welcome-logo-image" src="/manus-storage/comeback-logo-trimmed_261d6845.png" alt="Comeback Recovery" /></div>
+        <div className="welcome-symbol"><img className="welcome-logo-image" src={`${import.meta.env.BASE_URL}assets/comeback-logo.png`} alt="Comeback Recovery" /></div>
         {step === 0 ? (
           <div className="welcome-copy">
             <span className="eyebrow">{t.englishBrand}</span>
