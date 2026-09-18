@@ -1,0 +1,12 @@
+{
+  "name": "Comeback — برگرد. فقط برای امروز.",
+  "short_name": "Comeback",
+  "description": "A calm recovery companion for today.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f5f0",
+  "theme_color": "#f7f5f0",
+  "lang": "fa",
+  "dir": "rtl",
+  "icons": []
+}
