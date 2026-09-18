@@ -244,6 +244,13 @@ h1 { font-size: clamp(27px, 6vw, 38px); letter-spacing: -.06em; line-height: 1.1
 .control-button.subtle { color: var(--muted); background: transparent; }
 .pause-bars { width: 10px; height: 11px; display: inline-block; border-inline: 2px solid var(--orange); }
 .play-triangle { width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-inline-start: 7px solid var(--orange); }
+.audio-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 390px; margin: 16px auto 0; }
+.audio-toggle { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 7px; padding: 9px 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 12px; background: transparent; text-align: start; font-size: 10px; transition: border-color .16s ease, background .16s ease, color .16s ease; }
+.audio-toggle svg { grid-row: span 2; color: var(--muted); }
+.audio-toggle span { font-weight: 700; }
+.audio-toggle small { color: #aaa8a2; font: 9px "DM Mono", monospace; }
+.audio-toggle.active { color: var(--green); border-color: rgba(62,107,87,.4); background: var(--green-soft); }
+.audio-toggle.active svg { color: var(--green); }
 .compact-field { max-width: 390px; margin: 22px auto 0; }
 .modal-intro h3, .slip-hero h3 { font-size: 22px; letter-spacing: -.05em; }
 .modal-intro p, .slip-hero p { max-width: 360px; margin: 10px auto 0; color: var(--muted); font-size: 12px; line-height: 1.8; }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -29,6 +29,8 @@ import {
   Timer,
   Trash2,
   UserRound,
+  Volume2,
+  VolumeX,
   X,
   Zap,
 } from "lucide-react";
@@ -123,6 +125,10 @@ const copy = {
     pause: "مکث",
     resume: "ادامه",
     restart: "از اول",
+    ambientSound: "صدای آرام",
+    voiceGuide: "راهنمای صوتی",
+    audioOn: "روشن",
+    audioOff: "خاموش",
     breathComplete: "همین‌جا ماندی؛ این یک اقدام واقعی بود.",
     breathCompleteNote: "بدنت را مجبور نکن. فقط ببین حالا شدت وسوسه چقدر است.",
     stay: "بمانیم",
@@ -238,6 +244,10 @@ const copy = {
     pause: "Pause",
     resume: "Resume",
     restart: "Start over",
+    ambientSound: "Calm sound",
+    voiceGuide: "Voice guide",
+    audioOn: "On",
+    audioOff: "Off",
     breathComplete: "You stayed; that was a real action.",
     breathCompleteNote: "Don’t force your body. Just notice how strong the urge feels now.",
     stay: "Stay with me",
@@ -422,8 +432,11 @@ function UrgeModal({ lang, onClose, onAddPoints }: { lang: Lang; onClose: () => 
   const [seconds, setSeconds] = useState(90);
   const [selected, setSelected] = useState("breathe");
   const [running, setRunning] = useState(true);
+  const [musicOn, setMusicOn] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(false);
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [phaseRemaining, setPhaseRemaining] = useState(4);
+  const audioRef = useRef<{ context: AudioContext; nodes: OscillatorNode[]; gain: GainNode } | null>(null);
   const phases = [
     { key: "inhale", label: t.inhale, duration: 4 },
     { key: "hold", label: t.hold, duration: 2 },
@@ -445,9 +458,53 @@ function UrgeModal({ lang, onClose, onAddPoints }: { lang: Lang; onClose: () => 
     return () => window.clearInterval(timer);
   }, [running, seconds, phaseIndex]);
   useEffect(() => { if (seconds === 0) setRunning(false); }, [seconds]);
+  useEffect(() => {
+    if (!musicOn) {
+      audioRef.current?.context.close();
+      audioRef.current = null;
+      return;
+    }
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const gain = context.createGain();
+    const filter = context.createBiquadFilter();
+    gain.gain.value = 0.035;
+    filter.type = "lowpass";
+    filter.frequency.value = 820;
+    filter.Q.value = 0.45;
+    filter.connect(gain);
+    gain.connect(context.destination);
+    const nodes = [174, 220].map((frequency, index) => {
+      const oscillator = context.createOscillator();
+      oscillator.type = index === 0 ? "sine" : "triangle";
+      oscillator.frequency.value = frequency;
+      oscillator.detune.value = index === 0 ? -3 : 4;
+      oscillator.connect(filter);
+      oscillator.start();
+      return oscillator;
+    });
+    audioRef.current = { context, nodes, gain };
+    return () => {
+      nodes.forEach(node => { try { node.stop(); } catch { /* already stopped */ } });
+      context.close();
+      audioRef.current = null;
+    };
+  }, [musicOn]);
+  useEffect(() => {
+    if (!voiceOn || !running || seconds <= 0 || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(`${phase.label}. ${phaseRemaining}`);
+    utterance.lang = lang === "fa" ? "fa-IR" : "en-US";
+    utterance.rate = 0.82;
+    utterance.pitch = 0.9;
+    utterance.volume = 0.72;
+    window.speechSynthesis.speak(utterance);
+  }, [voiceOn, phaseIndex, running, lang]);
+  useEffect(() => () => { window.speechSynthesis?.cancel(); audioRef.current?.context.close(); }, []);
   const restart = () => { setSeconds(90); setPhaseIndex(0); setPhaseRemaining(4); setRunning(true); };
   const finish = () => { onAddPoints(intensity); toast.success(t.breathComplete); onClose(); };
-  return <ModalShell title={t.pause90} onClose={onClose} className="modal-urge"><div className="breathing-intro"><span className="soft-pill"><Leaf size={14} /> {t.breathGuide}</span><h3>{seconds > 0 ? t.urgeTitle : t.breathComplete}</h3><p>{seconds > 0 ? t.urgeBody : t.breathCompleteNote}</p></div><div className={`breathing-visual ${phase.key} ${running ? "is-running" : "is-paused"}`} aria-live="polite"><div className="breathing-rings"><span /><span /><span /></div><div className="breathing-core"><strong>{seconds}</strong><small>{t.minute}</small></div></div><div className="breathing-status"><span>{phase.label}</span><strong>{phaseRemaining}</strong></div><div className="breathing-controls"><button className="control-button" onClick={() => setRunning(value => !value)}>{running ? <><span className="pause-bars" />{t.pause}</> : <><PlayIcon />{t.resume}</>}</button><button className="control-button subtle" onClick={restart}><RotateCcw size={15} />{t.restart}</button></div><div className="field-block compact-field"><label>{t.urgeIntensity}<strong>{intensity}</strong></label><input type="range" min="0" max="10" value={intensity} onChange={e => setIntensity(Number(e.target.value))} /><div className="range-labels"><span>0</span><span>10</span></div></div><div className="choice-block"><label>{t.urgeTrigger}</label><div className="choice-grid">{[["breathe", t.breathe, Sun], ["change", t.changePlace, ArrowRight], ["call", t.callSomeone, Phone]].map(([key, label, Icon]: any) => <button key={key} className={selected === key ? "selected" : ""} onClick={() => { setSelected(key); if (key === "breathe") setRunning(true); if (key === "call") toast(t.callSomeone); }}><Icon size={17} />{label}</button>)}</div></div><button className="primary-button dark full" onClick={finish}><Check size={17} />{seconds === 0 ? t.done : t.stay}</button></ModalShell>;
+  return <ModalShell title={t.pause90} onClose={onClose} className="modal-urge"><div className="breathing-intro"><span className="soft-pill"><Leaf size={14} /> {t.breathGuide}</span><h3>{seconds > 0 ? t.urgeTitle : t.breathComplete}</h3><p>{seconds > 0 ? t.urgeBody : t.breathCompleteNote}</p></div><div className={`breathing-visual ${phase.key} ${running ? "is-running" : "is-paused"}`} aria-live="polite"><div className="breathing-rings"><span /><span /><span /></div><div className="breathing-core"><strong>{seconds}</strong><small>{t.minute}</small></div></div><div className="breathing-status"><span>{phase.label}</span><strong>{phaseRemaining}</strong></div><div className="breathing-controls"><button className="control-button" onClick={() => setRunning(value => !value)}>{running ? <><span className="pause-bars" />{t.pause}</> : <><PlayIcon />{t.resume}</>}</button><button className="control-button subtle" onClick={restart}><RotateCcw size={15} />{t.restart}</button></div><div className="audio-toggles"><button className={`audio-toggle ${musicOn ? "active" : ""}`} aria-pressed={musicOn} onClick={() => setMusicOn(value => !value)}>{musicOn ? <Volume2 size={15} /> : <VolumeX size={15} />}<span>{t.ambientSound}</span><small>{musicOn ? t.audioOn : t.audioOff}</small></button><button className={`audio-toggle ${voiceOn ? "active" : ""}`} aria-pressed={voiceOn} onClick={() => setVoiceOn(value => !value)}>{voiceOn ? <Volume2 size={15} /> : <VolumeX size={15} />}<span>{t.voiceGuide}</span><small>{voiceOn ? t.audioOn : t.audioOff}</small></button></div><div className="field-block compact-field"><label>{t.urgeIntensity}<strong>{intensity}</strong></label><input type="range" min="0" max="10" value={intensity} onChange={e => setIntensity(Number(e.target.value))} /><div className="range-labels"><span>0</span><span>10</span></div></div><div className="choice-block"><label>{t.urgeTrigger}</label><div className="choice-grid">{[["breathe", t.breathe, Sun], ["change", t.changePlace, ArrowRight], ["call", t.callSomeone, Phone]].map(([key, label, Icon]: any) => <button key={key} className={selected === key ? "selected" : ""} onClick={() => { setSelected(key); if (key === "breathe") setRunning(true); if (key === "call") toast(t.callSomeone); }}><Icon size={17} />{label}</button>)}</div></div><button className="primary-button dark full" onClick={finish}><Check size={17} />{seconds === 0 ? t.done : t.stay}</button></ModalShell>;
 }
 
 function PlayIcon() { return <span className="play-triangle" aria-hidden="true" />; }
