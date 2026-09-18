@@ -116,6 +116,15 @@ const copy = {
     breathe: "نفس بکش",
     changePlace: "جایم را عوض کنم",
     callSomeone: "با کسی تماس بگیرم",
+    breathGuide: "با ریتم آرام ۴–۲–۶ همراه شو",
+    inhale: "دم",
+    hold: "مکث",
+    exhale: "بازدم",
+    pause: "مکث",
+    resume: "ادامه",
+    restart: "از اول",
+    breathComplete: "همین‌جا ماندی؛ این یک اقدام واقعی بود.",
+    breathCompleteNote: "بدنت را مجبور نکن. فقط ببین حالا شدت وسوسه چقدر است.",
     stay: "بمانیم",
     afterSlipTitle: "باشه. حالا برگردیم.",
     afterSlipBody: "لغزش پایان مسیر نیست. اولین قدم را همین حالا بردار.",
@@ -222,6 +231,15 @@ const copy = {
     breathe: "Breathe",
     changePlace: "Change places",
     callSomeone: "Call someone",
+    breathGuide: "Follow the gentle 4–2–6 rhythm",
+    inhale: "Inhale",
+    hold: "Hold",
+    exhale: "Exhale",
+    pause: "Pause",
+    resume: "Resume",
+    restart: "Start over",
+    breathComplete: "You stayed; that was a real action.",
+    breathCompleteNote: "Don’t force your body. Just notice how strong the urge feels now.",
     stay: "Stay with me",
     afterSlipTitle: "Okay. Let’s come back.",
     afterSlipBody: "A slip is not the end of the path. Take the first step now.",
@@ -294,8 +312,7 @@ function getDayCount(startDate: string) {
 function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`brand-mark ${compact ? "brand-mark--compact" : ""}`} aria-label="Comeback">
-      <div className="logo-symbol"><span /><i /></div>
-      {!compact && <div className="brand-word"><strong>کامبک</strong><small>COMEBACK</small></div>}
+      <img className={`brand-image ${compact ? "brand-image--compact" : ""}`} src="/manus-storage/comeback-logo-trimmed_261d6845.png" alt="Comeback Recovery" />
     </div>
   );
 }
@@ -402,12 +419,38 @@ function ModalShell({ title, onClose, children, className = "" }: { title: strin
 function UrgeModal({ lang, onClose, onAddPoints }: { lang: Lang; onClose: () => void; onAddPoints: (intensity: number) => void }) {
   const t = copy[lang];
   const [intensity, setIntensity] = useState(5);
-  const [selected, setSelected] = useState("");
   const [seconds, setSeconds] = useState(90);
-  useEffect(() => { const timer = window.setInterval(() => setSeconds(s => s > 0 ? s - 1 : 0), 1000); return () => window.clearInterval(timer); }, []);
-  const finish = () => { onAddPoints(intensity); toast.success(lang === "fa" ? "همین‌جا ماندی؛ این یک اقدام واقعی بود." : "You stayed; that was a real action."); onClose(); };
-  return <ModalShell title={t.pause90} onClose={onClose} className="modal-urge"><div className="modal-intro"><div className="breath-orb"><span>{seconds}</span><small>{t.minute}</small></div><h3>{t.urgeTitle}</h3><p>{t.urgeBody}</p></div><div className="field-block"><label>{t.urgeIntensity}<strong>{intensity}</strong></label><input type="range" min="0" max="10" value={intensity} onChange={e => setIntensity(Number(e.target.value))} /><div className="range-labels"><span>0</span><span>10</span></div></div><div className="choice-block"><label>{t.urgeTrigger}</label><div className="choice-grid">{[["breathe", t.breathe, Sun], ["change", t.changePlace, ArrowRight], ["call", t.callSomeone, Phone]].map(([key, label, Icon]: any) => <button key={key} className={selected === key ? "selected" : ""} onClick={() => setSelected(key)}><Icon size={17} />{label}</button>)}</div></div><button className="primary-button dark full" onClick={finish}><Check size={17} />{t.stay}</button></ModalShell>;
+  const [selected, setSelected] = useState("breathe");
+  const [running, setRunning] = useState(true);
+  const [phaseIndex, setPhaseIndex] = useState(0);
+  const [phaseRemaining, setPhaseRemaining] = useState(4);
+  const phases = [
+    { key: "inhale", label: t.inhale, duration: 4 },
+    { key: "hold", label: t.hold, duration: 2 },
+    { key: "exhale", label: t.exhale, duration: 6 },
+  ];
+  const phase = phases[phaseIndex];
+  useEffect(() => {
+    if (!running || seconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setSeconds(value => Math.max(0, value - 1));
+      setPhaseRemaining(value => {
+        if (value <= 1) {
+          setPhaseIndex(index => (index + 1) % phases.length);
+          return phases[(phaseIndex + 1) % phases.length].duration;
+        }
+        return value - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [running, seconds, phaseIndex]);
+  useEffect(() => { if (seconds === 0) setRunning(false); }, [seconds]);
+  const restart = () => { setSeconds(90); setPhaseIndex(0); setPhaseRemaining(4); setRunning(true); };
+  const finish = () => { onAddPoints(intensity); toast.success(t.breathComplete); onClose(); };
+  return <ModalShell title={t.pause90} onClose={onClose} className="modal-urge"><div className="breathing-intro"><span className="soft-pill"><Leaf size={14} /> {t.breathGuide}</span><h3>{seconds > 0 ? t.urgeTitle : t.breathComplete}</h3><p>{seconds > 0 ? t.urgeBody : t.breathCompleteNote}</p></div><div className={`breathing-visual ${phase.key} ${running ? "is-running" : "is-paused"}`} aria-live="polite"><div className="breathing-rings"><span /><span /><span /></div><div className="breathing-core"><strong>{seconds}</strong><small>{t.minute}</small></div></div><div className="breathing-status"><span>{phase.label}</span><strong>{phaseRemaining}</strong></div><div className="breathing-controls"><button className="control-button" onClick={() => setRunning(value => !value)}>{running ? <><span className="pause-bars" />{t.pause}</> : <><PlayIcon />{t.resume}</>}</button><button className="control-button subtle" onClick={restart}><RotateCcw size={15} />{t.restart}</button></div><div className="field-block compact-field"><label>{t.urgeIntensity}<strong>{intensity}</strong></label><input type="range" min="0" max="10" value={intensity} onChange={e => setIntensity(Number(e.target.value))} /><div className="range-labels"><span>0</span><span>10</span></div></div><div className="choice-block"><label>{t.urgeTrigger}</label><div className="choice-grid">{[["breathe", t.breathe, Sun], ["change", t.changePlace, ArrowRight], ["call", t.callSomeone, Phone]].map(([key, label, Icon]: any) => <button key={key} className={selected === key ? "selected" : ""} onClick={() => { setSelected(key); if (key === "breathe") setRunning(true); if (key === "call") toast(t.callSomeone); }}><Icon size={17} />{label}</button>)}</div></div><button className="primary-button dark full" onClick={finish}><Check size={17} />{seconds === 0 ? t.done : t.stay}</button></ModalShell>;
 }
+
+function PlayIcon() { return <span className="play-triangle" aria-hidden="true" />; }
 
 function SlipModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
   const t = copy[lang];
@@ -452,7 +495,7 @@ function Welcome({ lang, setLang, onComplete }: { lang: Lang; setLang: (l: Lang)
         </button>
       </header>
       <div className="welcome-content">
-        <div className="welcome-symbol"><div className="logo-symbol large"><span /><i /></div><div className="symbol-trail" /></div>
+        <div className="welcome-symbol"><img className="welcome-logo-image" src="/manus-storage/comeback-logo-trimmed_261d6845.png" alt="Comeback Recovery" /></div>
         {step === 0 ? (
           <div className="welcome-copy">
             <span className="eyebrow">{t.englishBrand}</span>
